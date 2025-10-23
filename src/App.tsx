@@ -3,8 +3,9 @@ import Login from './Components/login';
 import Quiz from './Components/Quiz';
 import Feedback from './Components/feedback';
 import Thinku from './Components/Thinku';
+import React from "react";
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = localStorage.getItem('accessToken');
   return accessToken ? children : <Navigate to="/" />;
 }
