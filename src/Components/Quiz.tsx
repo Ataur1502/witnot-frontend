@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Quiz.css';
-import Feedback from './feedback';
+//import Feedback from './feedback';
 import { useNavigate } from 'react-router-dom';
 
 interface QuizOption {
@@ -30,7 +30,7 @@ interface NotificationProps {
   duration?: number;
 }
 
-const FEADBACK_PAGE_URL = 'feedback.tsx';
+//const FEADBACK_PAGE_URL = 'feedback.tsx';
 const LOGIN_PAGE_URL = '/login'; // Changed to standard react-router-dom path
 const API_BASE_URL = 'http://10.37.52.254:8000/api/';
 const userName = localStorage.getItem('userName');
