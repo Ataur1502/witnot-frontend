@@ -18,7 +18,7 @@ function App() {
           path="/quiz"
           element={
             <ProtectedRoute>
-              <Quiz />
+             <Quiz onEnd={() => { console.log("Quiz ended"); }} />
             </ProtectedRoute>
           }
         />
@@ -27,7 +27,7 @@ function App() {
           path="/thankyou"
           element={
             <ProtectedRoute>
-              <Thinku />
+              <Thinku onNext={() => { console.log("Next clicked"); }} />
             </ProtectedRoute>
           }
         />
