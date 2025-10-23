@@ -32,7 +32,7 @@ interface NotificationProps {
 
 //const FEADBACK_PAGE_URL = 'feedback.tsx';
 const LOGIN_PAGE_URL = '/login'; // Changed to standard react-router-dom path
-const API_BASE_URL = 'http://10.37.52.254:8000/api/';
+const API_BASE_URL = 'http://13.51.72.93/api/';
 const userName = localStorage.getItem('userName');
 
 // 🚨 BUG FIX: Added missing '$' for template literal interpolation
