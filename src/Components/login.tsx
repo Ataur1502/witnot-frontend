@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin?: () => void; //optional
 }
 
-const LOGIN_API_URL = "http://10.37.52.254:8000/api/login/";
+const LOGIN_API_URL = "http://10.233.162.254:8000/api/login/";
 const THANK_YOU_PAGE_URL = "/thanku";
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOGIN_ATTEMPTS_KEY = "consecutiveLoginFails";

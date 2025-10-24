@@ -1,10 +1,11 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate} from 'react-router-dom';
 import Login from './Components/login';
 import Quiz from './Components/Quiz';
 import Feedback from './Components/feedback';
 import Thinku from './Components/Thinku';
+import React from "react";
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = localStorage.getItem('accessToken');
   return accessToken ? children : <Navigate to="/" />;
 }
@@ -18,7 +19,7 @@ function App() {
           path="/quiz"
           element={
             <ProtectedRoute>
-              <Quiz />
+             <Quiz onEnd={() => { console.log("Quiz ended"); }} />
             </ProtectedRoute>
           }
         />
@@ -27,7 +28,7 @@ function App() {
           path="/thankyou"
           element={
             <ProtectedRoute>
-              <Thinku />
+              <Thinku onNext={() => { console.log("Next clicked"); }} />
             </ProtectedRoute>
           }
         />

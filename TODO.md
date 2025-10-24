@@ -1,6 +1,5 @@
-- [ ] Add state `isInFullscreen` to track fullscreen status
-- [ ] Update `onFS` listener to set `isInFullscreen` on fullscreenchange
-- [ ] In `startQuiz`, set `isInFullscreen` to true after entering fullscreen
-- [ ] Add "Re-enter Full Screen" button in submit-row, conditionally rendered when not in fullscreen
-- [ ] On button click, call `enterFullscreen`
-- [ ] Test: Exit fullscreen, button appears; click button, re-enters fullscreen
+# TODO for Adding Logout Button in Quiz.tsx
+
+- [x] Modify handleLogout function to clear localStorage items (accessToken, userName, quiz_warnings, quiz_time_remaining, quiz_answers) and navigate to '/login'
+- [x] Add logout button at the bottom of the question progress list (after quiz-list div) in the right section
+- [x] Update handleLogout to send remaining time to backend before logout
