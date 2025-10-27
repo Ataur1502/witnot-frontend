@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type ThinkuProps = {
   onNext: () => void;
 };
 
-const Thinku: React.FC<ThinkuProps> = ({ onNext }) => {
+const Thinku: React.FC<ThinkuProps> = ({ }) => {
+  const navigate = useNavigate();
   return (
     <div
       style={{
@@ -58,7 +60,7 @@ const Thinku: React.FC<ThinkuProps> = ({ onNext }) => {
         </p>
 
         <button
-          onClick={onNext}
+          onClick={() => navigate('/')}
           style={{
             padding: '10px 20px',
             backgroundColor: '#007bff',

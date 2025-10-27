@@ -8,7 +8,7 @@ const Feedback: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
-  const FEEDBACK_API_URL = 'http://10.233.162.254:8000/api/feedback/';
+  const FEEDBACK_API_URL = 'http://10.68.179.254:8000/api/feedback/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +38,7 @@ const Feedback: React.FC = () => {
       });
 
       if (response.ok) {
-        localStorage.clear();
-        navigate('/thankyou'); // Navigate to thank you page
+        navigate('/dashboard',{replace: true}); // Navigate to thank you page
       } else {
         const errorData = await response.json().catch(() => ({ message: 'Unknown server error.' }));
         setError(`Submission Failed (${response.status}): ${errorData.message || 'Please check the API endpoint.'}`);

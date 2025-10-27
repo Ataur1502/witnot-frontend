@@ -5,7 +5,7 @@ interface LoginProps {
   onLogin?: () => void; //optional
 }
 
-const LOGIN_API_URL = "http://10.233.162.254:8000/api/login/";
+const LOGIN_API_URL = "http://10.68.179.254:8000/api/login/";
 const THANK_YOU_PAGE_URL = "/thanku";
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOGIN_ATTEMPTS_KEY = "consecutiveLoginFails";
@@ -79,17 +79,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       // --- Success ---
       localStorage.setItem(LOGIN_ATTEMPTS_KEY, "0");
 
-      if (data.access && data.refresh && data.username) {
+      if (data.access && data.refresh) {
         localStorage.setItem("accessToken", data.access);
         localStorage.setItem("refreshToken", data.refresh);
-        localStorage.setItem("userName", data.username);
+        localStorage.setItem("userName", data.username || rollno); // Use API's username if available, fallback to entered rollno
       } else {
         // Handle case where API is successful but data payload is missing tokens
-        throw new Error("Login successful but tokens or username were not received.");
+        throw new Error("Login successful but tokens were not received.");
       }
 
       onLogin?.()
-      navigate('/quiz',{replace : true}) // 🔥 THIS NAVIGATES AWAY FROM THIS COMPONENT 🔥
+      navigate('/dashboard',{replace : true}) // 🔥 THIS NAVIGATES AWAY FROM THIS COMPONENT 🔥
       
       // This setLoading(false) is mostly harmless now, as the component is unmounting.
       setLoading(false); 

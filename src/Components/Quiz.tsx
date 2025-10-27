@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Quiz.css';
-//import Feedback from './feedback';
 import { useNavigate } from 'react-router-dom';
 
 interface QuizOption {
@@ -30,22 +29,18 @@ interface NotificationProps {
   duration?: number;
 }
 
-//const FEADBACK_PAGE_URL = 'feedback.tsx';
-const LOGIN_PAGE_URL = '/login'; // Changed to standard react-router-dom path
-const API_BASE_URL = 'http://10.233.162.254:8000/api/';
-const userName = localStorage.getItem('userName');
+const LOGIN_PAGE_URL = '/login';
+const DASHBOARD_PAGE_URL = '/dashboard'; // New constant for dashboard
+const API_BASE_URL = 'http://10.68.179.254:8000/api/';
 
-// 🚨 BUG FIX: Added missing '$' for template literal interpolation
-const QUIZ_FETCH_API_FULL_URL = `${API_BASE_URL}exam/${userName}/`;
-const QUIZ_SUBMIT_API_URL = `${API_BASE_URL}exam/${userName}/submit/`;
-
-const TOTAL_QUESTIONS_CONSTANT = 40; // Renamed to avoid confusion
-const TOTAL_TIME_SECONDS = 60 * 60;
+const TOTAL_QUESTIONS_CONSTANT = 40;
+const TOTAL_TIME_SECONDS = 60 * 60; // 1 Hour
 const MAX_WARNINGS_BEFORE_DEDUCTION = 5;
 const PENALIZED_MARKS = 0.5;
 const FINAL_SUBMISSION_WINDOW_SECONDS = 60 * 60;
 const VIOLATION_DEBOUNCE_TIME = 500;
 
+// Helper functions (unchanged)
 const getInitialWarningCount = (): number => {
   const savedWarnings = localStorage.getItem('quiz_warnings');
   try { return savedWarnings ? parseInt(savedWarnings, 10) : 0; } 
@@ -73,13 +68,14 @@ const getTimeFromLocalStorage = (): number | null => {
   const val = localStorage.getItem('quiz_time_remaining');
   return val ? parseInt(val, 10) : null;
 };
+// End of Helper functions
 
 const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
   const [quizData, setQuizData] = useState<QuizQuestion[]>([]);
   const [currentQuestionNumber, setCurrentQuestionNumber] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [quizProgress, setQuizProgress] = useState<string[]>(Array(TOTAL_QUESTIONS_CONSTANT).fill('unanswered')); // Use constant for initial state
+  const [quizProgress, setQuizProgress] = useState<string[]>(Array(TOTAL_QUESTIONS_CONSTANT).fill('unanswered'));
   const [quizActive, setQuizActive] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(TOTAL_TIME_SECONDS);
   const [showInstructionModal, setShowInstructionModal] = useState(true);
@@ -88,7 +84,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // 🚨 BUG FIX: Use template literals correctly and with the constant
   const [initialTotalQ, setInitialTotalQ] = useState(`${TOTAL_QUESTIONS_CONSTANT} Questions`);
   const [initialTimeLimit, setInitialTimeLimit] = useState('1 Hour (60 Minutes)');
   const [progressText, setProgressText] = useState(`0/${TOTAL_QUESTIONS_CONSTANT}`);
@@ -97,17 +92,23 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
   const [progressOffset, setProgressOffset] = useState(0);
   const [isInFullscreen, setIsInFullscreen] = useState(false);
   
-  // New state to hold the actual question count from the API
   const [totalQuestions, setTotalQuestions] = useState(TOTAL_QUESTIONS_CONSTANT);
 
   const timerRef = useRef<number | undefined>(undefined);
   const notifRef = useRef(0);
   const warnRef = useRef(getInitialWarningCount());
   const lastViolationTimeRef = useRef(0);
+  
+  const hasInitializedRef = useRef(false);
 
   const accessToken = localStorage.getItem('accessToken');
   const userName = localStorage.getItem('userName');
   const navigate = useNavigate();
+
+  // API URLs that depend on userName
+  const QUIZ_FETCH_API_FULL_URL = `${API_BASE_URL}exam/${userName}/`;
+  const QUIZ_SUBMIT_API_URL = `${API_BASE_URL}exam/${userName}/submit/`;
+  const LOGOUT_API_URL = `${API_BASE_URL}logout/`;
 
   const showNotification = useCallback((msg: string, isError = false, duration = 4000) => {
     const id = notifRef.current++;
@@ -120,15 +121,31 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
   const formatTime = (sec: number) => {
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
-    // 🚨 BUG FIX: Fixed template literal issue in formatTime
     return (h > 0 ? `${h} Hour(s) ` : '') + (m > 0 ? `${m} Minute(s)` : '30 Minutes');
   };
 
-  const handleLogout = useCallback(() => {
-    
-    // Navigate to feedback page after quiz submission
-    navigate('/feedback', { replace: true });
-  }, [navigate]);
+  // Renamed to handle the final token cleanup needed upon submission
+  const handleFinalSubmissionCleanup = useCallback(async () => {
+
+
+    const refreshToken = localStorage.getItem('refreshToken');
+    try {
+      await fetch(LOGOUT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch (error) {
+      console.error('Error during final cleanup logout:', error);
+    }
+    localStorage.clear();
+    // After final submission, redirect to login as the session is over
+    navigate(LOGIN_PAGE_URL, { replace: true });
+  }, [accessToken, navigate, LOGOUT_API_URL]);
+
 
   const endQuiz = useCallback((_reason: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -140,17 +157,17 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
   }, [onEnd]);
 
   const initializeQuizSession = useCallback(async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    const userName = localStorage.getItem('userName');
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+    
     if (!accessToken || !userName) {
-      // 🚨 FIX: Using navigate instead of window.location.href
       navigate(LOGIN_PAGE_URL, { replace: true });
       return;
     }
+    setLoading(true);
     try {
       const response = await fetch(QUIZ_FETCH_API_FULL_URL, {
         method: 'GET',
-        // 🚨 BUG FIX: Added missing '$' for template literal interpolation
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       });
       const data = await response.json();
@@ -162,8 +179,32 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
       }
       
       const actualTotalQuestions = data.questions.length;
-      setTotalQuestions(actualTotalQuestions); // Set the actual count
+      setTotalQuestions(actualTotalQuestions);
 
+      let initialTime: number;
+      
+      if (data.start_time && data.end_time) {
+        const startTime = new Date(data.start_time).getTime();
+        const endTime = new Date(data.end_time).getTime();
+        const currentTimeMillis = new Date().getTime();
+        
+        const totalDurationSeconds = Math.floor((endTime - startTime) / 1000); 
+        const timeElapsedSeconds = Math.floor((currentTimeMillis - startTime) / 1000);
+        let calculatedRemainingTime = totalDurationSeconds - timeElapsedSeconds;
+        calculatedRemainingTime = Math.max(0, calculatedRemainingTime); 
+        
+        const savedTime = getTimeFromLocalStorage();
+        initialTime = savedTime !== null ? Math.min(calculatedRemainingTime, savedTime) : calculatedRemainingTime;
+        setInitialTimeLimit(`Time Limit: ${formatTime(totalDurationSeconds)}`);
+
+      } else {
+        initialTime = getTimeFromLocalStorage() || TOTAL_TIME_SECONDS; 
+        setInitialTimeLimit(`Time Limit: ${formatTime(TOTAL_TIME_SECONDS)}`);
+      }
+      
+      initialTime = Math.min(initialTime, TOTAL_TIME_SECONDS);
+      setTimeRemaining(initialTime);
+      
       let questions: QuizQuestion[] = data.questions.map((q: any) => ({
         id: q.id,
         questionText: q.text,
@@ -174,7 +215,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
         isPenalized: q.penalties > 0,
       }));
 
-      // Restore answers from local storage
       const savedAnswers = getAnswersFromLocalStorage();
       if (savedAnswers) {
         questions = questions.map(q => {
@@ -184,46 +224,41 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
       }
 
       setQuizData(questions);
-      // Ensure time remaining doesn't exceed the max time from API or constant
-      const initialTime = Math.min(data.timer, getTimeFromLocalStorage() || TOTAL_TIME_SECONDS);
-      setTimeRemaining(initialTime);
       setQuizProgress(questions.map(q => q.userAnswer ? (q.isPenalized ? 'penalized' : 'answered') : 'unanswered'));
       
-      // 🚨 BUG FIX: Fixed template literal issue and used actual count
       setInitialTotalQ(`${actualTotalQuestions} Questions`);
-      setInitialTimeLimit(`Remaining: ${formatTime(initialTime)}`);
       setProgressText(`0/${actualTotalQuestions}`);
+
     } catch (error: any) {
       showNotification(error.message || 'Failed to load exam data.', true, 10000);
+    } finally {
+        setLoading(false);
     }
-  }, [accessToken, userName, showNotification, navigate]); // 🚨 FIX: Added navigate to dependencies
+  }, [accessToken, userName, showNotification, navigate, QUIZ_FETCH_API_FULL_URL, formatTime]);
 
   const fetchQuestion = useCallback((q: number) => {
-    // 🚨 BUG FIX: Use the dynamic 'totalQuestions' state instead of the fixed constant
     if (q < 1 || q > totalQuestions) { endQuiz('completed'); return; } 
     setLoading(true);
     const question = quizData[q - 1];
     setCurrentQuestion(question);
     setCurrentQuestionNumber(q);
     setSelectedOption(question.userAnswer);
-    // 🚨 BUG FIX: Used the dynamic 'totalQuestions' state
     setBreadcrumb(`Question ${q} of ${totalQuestions}`);
     setLoading(false);
-  }, [quizData, endQuiz, totalQuestions]); // 🚨 FIX: Added totalQuestions to dependencies
+  }, [quizData, endQuiz, totalQuestions]);
 
   const handleOptionClick = useCallback((key: string) => {
     if (!quizActive || !currentQuestion || !isInFullscreen) return;
     setSelectedOption(key);
     const idx = currentQuestionNumber - 1;
     
-    // 🚨 FIX: Mutating quizData directly is bad. Create a copy and update the state.
     const newQuizData = [...quizData];
     newQuizData[idx] = { ...newQuizData[idx], userAnswer: key };
 
     if (!newQuizData[idx].isPenalized) {
       setQuizProgress(prev => { const p = [...prev]; p[idx] = 'answered'; return p; });
     }
-    setQuizData(newQuizData); // Update state with the new copy
+    setQuizData(newQuizData);
     saveAnswersToLocalStorage(newQuizData);
   }, [quizActive, currentQuestion, currentQuestionNumber, quizData, isInFullscreen]);
 
@@ -235,19 +270,17 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
     if (!quizActive || !isInFullscreen) return;
     const idx = currentQuestionNumber - 1;
     
-    // 🚨 FIX: Mutating quizData directly is bad. Create a copy for local storage.
     const newQuizData = [...quizData];
 
     if (newQuizData[idx].userAnswer === null && quizProgress[idx] === 'unanswered') {
       setQuizProgress(prev => { const p = [...prev]; p[idx] = 'skipped'; return p; });
     }
     
-    // 🚨 BUG FIX: Used the dynamic 'totalQuestions' state
     if (currentQuestionNumber < totalQuestions) fetchQuestion(currentQuestionNumber + 1);
     
-    saveAnswersToLocalStorage(newQuizData); // Save the current state of answers
+    saveAnswersToLocalStorage(newQuizData);
     
-  }, [quizActive, currentQuestionNumber, quizData, quizProgress, fetchQuestion, isInFullscreen, totalQuestions]); // 🚨 FIX: Added totalQuestions to dependencies
+  }, [quizActive, currentQuestionNumber, quizData, quizProgress, fetchQuestion, isInFullscreen, totalQuestions]);
 
   const submitFullQuiz = useCallback(async () => {
     if (!quizActive) return;
@@ -260,26 +293,27 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
     try {
       const response = await fetch(QUIZ_SUBMIT_API_URL, {
         method: 'POST',
-        // 🚨 BUG FIX: Added missing '$' for template literal interpolation
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ quizSessionId: userName, totalWarnings: warnRef.current, submittedAnswers: finalSubmission }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'Failed to submit quiz.');
+      
       if (timerRef.current) clearInterval(timerRef.current);
       setQuizActive(false);
-      handleLogout();
-    } catch (error: any) {
+      // *** IMPORTANT: Call the cleanup function after submission ***
+      setTimeout(() =>{
+        navigate("/feedback",{replace:true});},1000);}
+    catch (error: any) {
       showNotification(error.message || 'Error submitting quiz.', true, 5000);
       endQuiz('submission_error');
     }
-  }, [quizActive, quizData, accessToken, userName, showNotification, handleLogout, endQuiz]);
+  }, [quizActive, quizData, accessToken, userName, showNotification, handleFinalSubmissionCleanup, endQuiz, QUIZ_SUBMIT_API_URL]);
 
   const handleSubmitClick = useCallback(() => {
     if (!quizActive) return;
     if (timeRemaining > FINAL_SUBMISSION_WINDOW_SECONDS) {
       const minutesRemaining = Math.ceil((timeRemaining - FINAL_SUBMISSION_WINDOW_SECONDS) / 60);
-      // 🚨 BUG FIX: Fixed template literal issue
       showNotification(`Manual submission allowed in last 15 minutes. ${minutesRemaining} minutes remaining.`, true, 5000);
       return;
     }
@@ -296,7 +330,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
 
   const enterFullscreen = () => {
     const element = document.documentElement;
-    // 🚨 FIX: Added a check for an existing full-screen element to prevent error logs on a successful request
     if (!document.fullscreenElement) {
         (element.requestFullscreen || (element as any).webkitRequestFullscreen || (element as any).mozRequestFullScreen || (element as any).msRequestFullscreen)?.call(element).catch(() => {});
     }
@@ -308,7 +341,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
     lastViolationTimeRef.current = now;
     if (!quizActive) return;
     
-    // 🚨 FIX: Using standard fullscreenElement check
     const isFullscreen = document.fullscreenElement !== null;
     const violationType = !isFullscreen ? 'exited Full Screen mode' : 'switched tabs or lost focus';
     warnRef.current++;
@@ -318,14 +350,12 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
     
     if (warnRef.current <= MAX_WARNINGS_BEFORE_DEDUCTION) {
       const remaining = MAX_WARNINGS_BEFORE_DEDUCTION - warnRef.current;
-      // 🚨 BUG FIX: Fixed template literal issue
       showNotification(`⚠ Warning ${warnRef.current}. You ${violationType}. Warnings left before deductions: ${remaining}.`, false, 8000);
     } else {
-      // 🚨 FIX: Mutating quizData directly is bad. Create a copy and update the state.
       const newQuizData = [...quizData];
       if (currentQuestion && !newQuizData[idx].isPenalized) {
         newQuizData[idx].isPenalized = true;
-        setQuizData(newQuizData); // Update state with the new copy
+        setQuizData(newQuizData);
         saveAnswersToLocalStorage(newQuizData);
       }
       setQuizProgress(prev => { const p = [...prev]; p[idx] = 'penalized'; return p; });
@@ -333,7 +363,10 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
     }
   }, [quizActive, currentQuestionNumber, currentQuestion, quizData, showNotification]);
 
-  useEffect(() => { initializeQuizSession(); }, [initializeQuizSession]);
+  useEffect(() => { 
+      if (hasInitializedRef.current) return;
+      initializeQuizSession(); 
+  }, [initializeQuizSession]);
 
   useEffect(() => {
     if (!quizActive) return;
@@ -345,7 +378,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
         if (!isCurrentlyFullscreen) handleViolation(); 
     };
     
-    // The fullscreenchange event is not fired on window, but document
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('blur', onBlur);
     document.addEventListener('fullscreenchange', onFS);
@@ -371,7 +403,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
 
   const formatTimer = (sec: number) => {
     const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
-    // 🚨 BUG FIX: Fixed template literal issue
     return (h > 0 ? `${h}:` : '') + `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
   };
 
@@ -379,12 +410,11 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
   const answeredCount = quizProgress.filter(s => s === 'answered' || s === 'penalized').length;
 
   useEffect(() => {
-    // 🚨 BUG FIX: Used the dynamic 'totalQuestions' state
     setProgressText(`${answeredCount}/${totalQuestions}`);
     setTimeText(formatTimer(timeRemaining));
     const PERIM = 2 * Math.PI * 48;
     setProgressOffset(PERIM * (1 - getProgressPct()));
-  }, [timeRemaining, answeredCount, totalQuestions]); // 🚨 FIX: Added totalQuestions to dependencies
+  }, [timeRemaining, answeredCount, totalQuestions]);
 
   return (
     <>
@@ -401,7 +431,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
               <li><b>Note:</b> This is an <b>internal examination</b> conducted exclusively for authorized participants under institutional guidelines.</li>
               <li>This exam must be taken in <b>Full Screen</b> mode.</li>
               <li><b>Do not switch tabs or minimize the window.</b> Doing so will trigger a warning.</li>
-              {/* 🚨 BUG FIX: Used the constant correctly */}
               <li>You have a grace period of <b>{MAX_WARNINGS_BEFORE_DEDUCTION} warnings</b>. Starting from the <b>{MAX_WARNINGS_BEFORE_DEDUCTION + 1}th warning</b>, the mark for the <b>current question</b> will be penalized to <b>{PENALIZED_MARKS} marks</b>.</li>
               <li>Ensure a stable internet connection throughout the test.</li>
               <li>The <b>'Next Question'</b> button allows you to move forward, even if you skip the current question.</li>
@@ -451,7 +480,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
                   <div className="options" role="list">
                     {currentQuestion.options.map(option => {
                       const isSelected = option.key === selectedOption;
-                      // 🚨 BUG FIX: Fixed template literal issue in className
                       return (
                         <div key={option.key} className={`option ${isSelected ? 'selected' : ''}`} onClick={() => handleOptionClick(option.key)} role="button" tabIndex={0}>
                           <div className="letter">{option.key}</div>
@@ -480,7 +508,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
               <div className="submit-row">
                 {currentQuestionNumber > 1 && <button className="btn" onClick={handlePrevious}>Previous</button>}
                 <b>  </b>
-                {/* 🚨 BUG FIX: Used the dynamic 'totalQuestions' state */}
                 {currentQuestionNumber < totalQuestions ? (
                   <button className="nxt-btn" onClick={handleNext}>Save & Next Question</button>
                 ) : (
@@ -506,7 +533,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
                   <circle cx="60" cy="60" r="48" stroke="#e7efe9" strokeWidth="14" fill="none" />
                   <circle cx="60" cy="60" r="48" stroke="url(#g1)" strokeWidth="14" strokeLinecap="round" strokeDasharray="302.88" strokeDashoffset={progressOffset} fill="none" style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }} />
                 </svg>
-                {/* 🚨 BUG FIX: Fixed template literal issue */}
                 <div className="center"><div>{timeText}</div></div>
               </div>
               <div className="label">Timer Remaining</div>
@@ -518,7 +544,6 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
                 {quizProgress.map((status, index) => {
                   const qNum = index + 1;
                   const isCurrent = qNum === currentQuestionNumber;
-                  // 🚨 BUG FIX: Fixed template literal issue in className
                   return (
                     <div
                       key={qNum}
@@ -534,13 +559,21 @@ const Quiz: React.FC<{ onEnd: () => void }> = ({ onEnd }) => {
                 })}
               </div>
             </div>
+
+            {/* *** MODIFIED BUTTON: Changed from Logout to Go to Dashboard *** */}
+            <button 
+                className="btn" 
+                onClick={() => navigate(DASHBOARD_PAGE_URL)} 
+                style={{ marginTop: '10px', background: '#3b82f6', color: 'white', fontWeight: 600 }}
+            >
+                Go to Dashboard
+            </button>
           </section>
         </main>
       </div>
 
       <div id="notification-container">
         {notifications.map(n => (
-          // 🚨 BUG FIX: Fixed template literal issue in className
           <div key={n.id} className={`notification show ${n.isError ? 'error' : ''}`}>
             {n.message}
           </div>
