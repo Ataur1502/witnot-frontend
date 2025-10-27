@@ -5,11 +5,7 @@ interface LoginProps {
   onLogin?: () => void; //optional
 }
 
-<<<<<<< HEAD
 const LOGIN_API_URL = "http://10.68.179.254:8000/api/login/";
-=======
-const LOGIN_API_URL = "http://13.51.72.93/api/login/";
->>>>>>> 3f7799f9e41092fdc22d6ae05a731d41533f2d93
 const THANK_YOU_PAGE_URL = "/thanku";
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOGIN_ATTEMPTS_KEY = "consecutiveLoginFails";
