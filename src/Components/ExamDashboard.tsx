@@ -2,39 +2,36 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Lock, LockOpen, Calendar, Clock, Home, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import imageLogo from '../assets/image1.png';
-import './ExamDashboard.css'; // import our new CSS file
+import './ExamDashboard.css'; // Import CSS file
 
-const ExamDashboard = () => {
+const ExamDashboard: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [rollNumber, setRollNumber] = useState('');
   const [examName, setExamName] = useState('Loading...');
   const [examUnlockTime, setExamUnlockTime] = useState(new Date());
-  const [examlockTime, setExamlockTime] = useState(new Date());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [examStatus,setExamStatus] =useState('');
+  const [_examLockTime, _setExamLockTime] = useState(new Date()); // underscore = silence TS unused var warning
+  const [_loading, _setLoading] = useState(true);
+  const [_error, _setError] = useState('');
+  const [examStatus, setExamStatus] = useState('');
   const navigate = useNavigate();
-  // Using a ref to track if data has been fetched to prevent double-fetch in Strict Mode
+
+  // Prevents double-fetching due to React Strict Mode re-renders
   const hasFetchedRef = useRef(false); 
 
   const isExamUnlocked = currentTime >= examUnlockTime;
 
   useEffect(() => {
     const userName = localStorage.getItem('userName');
-    if (userName) {
-      setRollNumber(userName);
-    }
+    if (userName) setRollNumber(userName);
 
     const fetchDashboardData = async () => {
-      // **FIX: Only run if the component hasn't been fetched AND it's not the initial Strict Mode rerender cleanup**
       if (hasFetchedRef.current) return;
-      
-      hasFetchedRef.current = true; // Mark as fetched immediately
+      hasFetchedRef.current = true;
 
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) {
-        setError('No access token found. Please log in again.');
-        setLoading(false);
+        _setError('No access token found. Please log in again.');
+        _setLoading(false);
         return;
       }
 
@@ -47,35 +44,26 @@ const ExamDashboard = () => {
           },
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data');
-        }
-
+        if (!response.ok) throw new Error('Failed to fetch dashboard data');
         const data = await response.json();
+
         setExamName(data.exam_name);
         setExamUnlockTime(new Date(data.exam_start));
-        setExamlockTime(new Date(data.exam_end));
-        setExamStatus(data.exam_status.toLowerCase());
+        _setExamLockTime(new Date(data.exam_end));
+        setExamStatus(data.exam_status?.toLowerCase() || '');
         
       } catch (err: any) {
-        setError(err.message || 'Error loading dashboard data');
+        _setError(err.message || 'Error loading dashboard data');
       } finally {
-        setLoading(false);
+        _setLoading(false);
       }
     };
 
     fetchDashboardData();
 
-    // Setup the time interval for current time display
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    
-    // Cleanup function for the timer
     return () => clearInterval(timer);
-  }, []); // Empty dependency array ensures it runs only once (on mount)
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  };
+  }, []);
 
   const getTimeUntilUnlock = () => {
     const diff = examUnlockTime.getTime() - currentTime.getTime();
@@ -104,7 +92,7 @@ const ExamDashboard = () => {
     } catch (error) {
       console.error('Error during logout:', error);
     }
-    localStorage.clear(); // Clear all localStorage items
+    localStorage.clear();
     navigate('/login', { replace: true });
   };
 
@@ -114,7 +102,7 @@ const ExamDashboard = () => {
       <aside className="sidebar">
         <div className="sidebar-header">
           <div>
-            <img src={imageLogo} alt="Logo" style={{width: '57px', height: '37px'}} />
+            <img src={imageLogo} alt="Logo" style={{ width: '57px', height: '37px' }} />
           </div>
           <div>
             <h1>WITNOT DASHBOARD</h1>
@@ -131,15 +119,25 @@ const ExamDashboard = () => {
       <main className="main-content">
         <header className="header"> 
           <div className="header-right">
-            {/* Wrapper for text elements */}
             <div>
-                <h3>Welcome Back!</h3>
-                {/* Changed from h2 to p for better structural hierarchy and correct styling */}
-                <h2>{rollNumber}</h2> 
+              <h3>Welcome Back!</h3>
+              <h2>{rollNumber}</h2> 
             </div>
             
-            {/* Logout button positioned using CSS .header-right flex rules */}
-            <button className="logout-btn" onClick={handleLogout} style={{ position: 'absolute', top: '40px', right: '30px', backgroundColor: '#050842ff', color: 'white', border: 'none', padding: '14px 32px', borderRadius: '29px'}} >
+            <button
+              className="logout-btn"
+              onClick={handleLogout}
+              style={{
+                position: 'absolute',
+                top: '40px',
+                right: '30px',
+                backgroundColor: '#050842ff',
+                color: 'white',
+                border: 'none',
+                padding: '14px 32px',
+                borderRadius: '29px'
+              }}
+            >
               <LogOut size={18} /> Logout
             </button>
           </div>
@@ -176,19 +174,22 @@ const ExamDashboard = () => {
             </div>
 
             <button
-  disabled={!isExamUnlocked || examStatus === 'completed'}
-  className={`exam-button ${isExamUnlocked && examStatus !== 'completed' ? 'active' : ''}`}
-  onClick={() => {
-    if (isExamUnlocked && examStatus !== 'completed') {
-      navigate('/quiz', { replace: true });
-    }
-  }}
->
-  {examStatus === 'ongoing' ? 'Resume Exam' : examStatus === 'completed' ? 'Completed' : isExamUnlocked ? 'Start Exam' : 'Exam Locked'}
-</button>
-
-
-           
+              disabled={!isExamUnlocked || examStatus === 'completed'}
+              className={`exam-button ${isExamUnlocked && examStatus !== 'completed' ? 'active' : ''}`}
+              onClick={() => {
+                if (isExamUnlocked && examStatus !== 'completed') {
+                  navigate('/quiz', { replace: true });
+                }
+              }}
+            >
+              {examStatus === 'ongoing'
+                ? 'Resume Exam'
+                : examStatus === 'completed'
+                ? 'Completed'
+                : isExamUnlocked
+                ? 'Start Exam'
+                : 'Exam Locked'}
+            </button>
           </div>
         </section>
       </main>
