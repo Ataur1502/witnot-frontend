@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './Quiz.css';
+<<<<<<< HEAD
+=======
+//import Feedback from './feedback';
+>>>>>>> 3f7799f9e41092fdc22d6ae05a731d41533f2d93
 import { useNavigate } from 'react-router-dom';
 
 interface QuizOption {
@@ -29,9 +33,16 @@ interface NotificationProps {
   duration?: number;
 }
 
+<<<<<<< HEAD
 const LOGIN_PAGE_URL = '/login';
 const DASHBOARD_PAGE_URL = '/dashboard'; // New constant for dashboard
 const API_BASE_URL = 'http://10.68.179.254:8000/api/';
+=======
+//const FEADBACK_PAGE_URL = 'feedback.tsx';
+const LOGIN_PAGE_URL = '/login'; // Changed to standard react-router-dom path
+const API_BASE_URL = 'http://13.51.72.93/api/';
+const userName = localStorage.getItem('userName');
+>>>>>>> 3f7799f9e41092fdc22d6ae05a731d41533f2d93
 
 const TOTAL_QUESTIONS_CONSTANT = 40;
 const TOTAL_TIME_SECONDS = 60 * 60; // 1 Hour
